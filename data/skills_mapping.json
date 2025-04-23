@@ -1,0 +1,5 @@
+{
+    "탱커": ["TankSkill1"],
+    "힐러": ["HealerSkill2"],
+    "근딜(물리)": ["MeleeSkill1"]
+}

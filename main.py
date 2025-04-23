@@ -24,7 +24,7 @@ intents.guilds = True
 intents.members = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
-TOKEN = "MTM0ODk3MTU0ODk0NTU0NzMzNQ.GVmODF.AqyxXmrt0CfhhELaHq33QBkuJXrRcFlInO2X7A" 
+TOKEN = "token" 
 
 class aclient(discord.Client):
     def __init__(self):

@@ -1,4 +1,22 @@
 기본적으로 주사위는 1d20을 쓴다.
+캐릭터의 스탯과 몬스터의 스탯은 구글시트에 기록된다.
+구글 시트의 이름은 Discord_Bot.
+만약 구글 시트를 수동으로 갱신하려 하는 경우, `/시트갱신`커맨드를 쓴다.
+전투 상태의 경우 Battle_Data 시트에 일시적으로 기록해놓고, 전투가 종료될 시 리셋된다. 
+Battle_Data 시트에는 참여 캐릭터의 이름과 상태이상 여부, 스킬과 리미트브레이크의 사용여부가 체크된다. 
+턴 수는 A열에 기록된다. 
+여러전투가 동시에 진행되는 경우, `/그룹전투` 커맨드를 써 유저를 등록한 다음, A그룹인 경우에는 Group_BattleA 시트에 기록된다. 
+디스코드 봇이다. 슬래시 커맨드를 쓰며, tree에 등록되어야 한다.
+user의 행동은 상호작용 버튼으로 결정되며, 대상을 지정하는 경우 해당 로직이 적용되는 대상의 리스트를 보여준다.
+
+예시: 전투 시작/참가/종료 플로우
+/전투준비 → 새로운 battle_id 생성, 참가자 리스트 초기화
+/참가 → 해당 battle_id에 유저 추가, 중복 참여 체크
+/준비완료 → battle_id별로 전투 상태 표시
+전투 진행 → battle_id별로 턴, 상태, HP 등 관리
+전투 종료 → battle_id에 해당하는 데이터 삭제 또는 상태 변경
+
+
 
 1. 판정난이도
  1)DC(Difficulty Class)
@@ -12,6 +30,7 @@ dc는 (민첩+근력+지능)/3으로 결정된다.
  4) 내성굴림(Saving Throw)
 상태이상 주문의 성공여부를 결정짓는 값. "DC+스탯보정치" 값이 1d20보다 크면 주문성공(방어실패), 반대일 경우 주문실패(방어 성공)
 스탯보정치는 지혜나 민첩 둘 중 하나이며, 그 중 더 높은 값을 쓴다.
+상태이상에 걸렸을 경우, 1턴마다 내성굴림 주사위가 굴려진다. 
 
 2. 능력치
  1)근력
@@ -47,6 +66,7 @@ HP가 기본 hp - (13-근력) 이며, 근력을 13 이상 가질 수 없다. 13�
 스킬은 스킬1, 스킬2가 있으며 직업에 따라 나뉘어진다. 또한 스킬은 한 번의 전투에 한 번 밖에 쓸 수 없다. 
   (1)탱커
 스킬1: 아군 한 명을 지정하여 아군이 받는 공격을 자신이 받는다. 이 때, 받는 피해값은 적이준 피해/2 가 된다.
+3턴동안.
 스킬2: 한 턴 동안 모든 공격이 무효화된다.
   (2)힐러
 스킬1: 지정대상을 최대hp까지 회복한다.
@@ -103,6 +123,8 @@ HP가 기본 hp - (13-근력) 이며, 근력을 13 이상 가질 수 없다. 13�
 : 적만이 사용할 수 있으며, 적의 수만큼 사용할 수 있다. 
 
  3)상태이상
+ 상태이상 중 출혈은 힐러의 스킬로 해제가 가능하다.
+ 마비의 경우 해제가 불가능 하다. 석화와 발화는 `/도와주기` 커맨드로 해제가 가능하나, 1d2 주사위를 돌려 2가 나와야 성공시킬 수 있다. 
   (1)출혈
 출혈 상태가 부여되면 부여된 해당 턴의 다음 턴부터 턴이 시작될 때마다 1d5의 피해를 받는 상태이상이다. 이 출혈은 부여된 다음턴을 포함한 5턴 동안 유지된다.
   (2)마비
@@ -144,17 +166,15 @@ HP가 기본 hp - (13-근력) 이며, 근력을 13 이상 가질 수 없다. 13�
 6. 플레이어
 기본적으로 플레이어의 데이터는 UserData시트에 보관되며 /시트업뎃 커맨드를 사용하여 새로고침할 수 있다. 
 /등록 커맨드를 쓰면 플레이어의 ID가 기록되고 기본적으로 모든 스탯이 5로 설정된다.
-  1)A열: ID
-  2)B열: 근력
- 3)C열: 민첩
- 4)D열: 건강
- 5)E열: 지능
- 6)F열: 지혜
- 7)G열: 리미트브레이크의 이름
- 8)H열: 리미트브레이크의 설명
- 9)I열: 직업
- 10)J열: 공용 인벤토리
- 11)K열: 개인별 코인 보유량 
+1. UserData 시트
+디스코드ID	캐릭터명	근력	민첩	건강	지능	지혜	인벤토리	코인
+1234567890	홍길동	7	5	6	5	8	포션,검	10
+9876543210	김철수	5	6	5	7	5	활,화살	3
+디스코드ID: 유저의 Discord ID(고유값)
+캐릭터명: 캐릭터 이름
+근력, 민첩, 건강, 지능, 지혜: 캐릭터 스탯(정수)
+인벤토리: 쉼표(,)로 구분된 아이템 목록(문자열)
+코인: 보유 코인(정수)
 
 7. PVP
 pvp는 1vs.1모드와 3vs.3 모드가 있다. 
@@ -164,8 +184,563 @@ pvp는 1vs.1모드와 3vs.3 모드가 있다.
 8. 적
 기본적으로 MonsterData 시트에 저장된다. /적추가 적이름 의 형태로 적을 추가할 수 있으며, 기본적으로 모두 5의 스탯을 가진다.
 전투 중 행동은 랜덤으로 결정되며, 상태이상 커맨드도 이에 포함된다.
- 1)A열: 고유번호
-처음 적을 추가할 때, 4자리의 숫자를 랜덤으로 부여한다. 만약 기존에 있던 번호가 생성될 경우, 다시 랜덤으로 숫자를 부여해 유일성을 지킨다. 
- 2)B열: 이름
- 3)C열~G열: 순서대로 근력, 민첩, 건강, 지능, 지혜
- 4)H열: 직업
+
+battle_id	턴	캐릭터명	디스코드ID	팀	HP	상태이상	스킬1	스킬2	리미트브레이크	행동불능
+2001	3	홍길동	1234567890	아군	12	출혈(2)	사용	미사용	미사용	N
+2001	3	슬라임		적	0	없음	-	-	-	Y
+2002	1	김철수	9876543210	팀1	15	없음	미사용	미사용	미사용	N
+battle_id: 전투 고유번호(정수)
+턴: 현재 전투의 턴 수(정수)
+캐릭터명: 캐릭터 또는 적 이름
+디스코드ID: 유저 캐릭터일 경우 소유자 ID, 적은 빈칸
+팀: 아군/적 또는 팀1/팀2 등
+HP: 현재 체력(정수)
+상태이상: 예) 출혈(2), 마비(1), 없음 등
+스킬1/스킬2/리미트브레이크: 사용/미사용
+행동불능: Y/N (상태이상 등으로 행동 불가 시 Y)
+
+
+ ===
+
+Battle_Data 시트
+
+battle_id: 전투 고유번호(각 전투마다 다름)
+턴: 현재 전투의 턴 수
+캐릭터명: 캐릭터 이름
+디스코드ID: 유저 캐릭터일 경우 소유자 ID, 적은 빈칸
+팀: 아군/적 구분
+HP: 현재 체력
+상태이상: 출혈(2), 마비(1) 등
+스킬1/스킬2/리미트브레이크: 사용/미사용
+행동불능: Y/N (상태이상 등으로 행동 불가 시 Y)
+
+===
+
+여러 전투 중복 참여 체크 로직
+
+Battle_Data 시트에서
+새로운 전투에 참가할 때, 해당 디스코드ID가 이미 다른 battle_id에 존재하는지 확인
+이미 존재하면 "이미 다른 전투에 참여 중입니다." 안내 후 참가 불가
+파이썬 예시 코드:
+
+def can_join_battle(discord_id, battle_data):
+    """
+    battle_data: List of dicts, each dict is a row from Battle_Data
+    """
+    for row in battle_data:
+        if row['디스코드ID'] == discord_id and row['행동불능'] != 'Y':
+            return False  # 이미 다른 전투에 참여 중
+    return True
+
+참가 명령어 실행 시
+Battle_Data 전체에서 해당 유저의 디스코드ID가 있는지 확인
+있으면 참가 불가, 없으면 참가 처리
+
+
+===
+
+3. 상태이상 및 스킬 사용 관리
+1) Battle_Data 시트 구조에 반영
+상태이상: 상태이상 컬럼에 "출혈(2)", "마비(1)" 등으로 남은 턴 수와 함께 기록
+스킬 사용여부: 스킬1, 스킬2, 리미트브레이크 컬럼에 "사용"/"미사용" 등으로 기록
+2) 턴 진행 시 자동 갱신 로직
+턴이 진행될 때마다 상태이상 컬럼의 남은 턴 수를 1씩 감소
+0이 되면 상태이상 해제(컬럼에서 삭제 또는 "없음"으로 변경)
+상태이상 효과(피해, 행동불능 등)는 턴 시작 시 자동 적용
+3) 스킬 사용 제한
+스킬1/2/리미트브레이크는 한 전투에 한 번만 사용 가능
+사용 시 해당 컬럼을 "사용"으로 변경
+명령어 실행 시 "사용" 상태면 재사용 불가 안내
+
+4) 파이썬 예시 코드
+
+# 상태이상 턴 감소 및 해제
+def update_status_effects(row):
+    if row['상태이상'] and row['상태이상'] != '없음':
+        effect, turns = row['상태이상'].split('(')
+        turns = int(turns.replace(')', '')) - 1
+        if turns <= 0:
+            row['상태이상'] = '없음'
+        else:
+            row['상태이상'] = f"{effect}({turns})"
+    return row
+
+# 스킬 사용 체크
+def can_use_skill(row, skill_col):
+    return row[skill_col] != '사용'
+
+5) 상태이상 효과 적용 예시
+출혈: 턴 시작 시 HP에서 1d5만큼 감소
+마비: 행동 시 50% 확률로 행동불능
+석화/발화: 턴 수에 따라 자동 해제
+
+
+===
+
+상태이상 관리와 스킬사용 체크 파이썬 예시 코드
+update_status_effects: 턴마다 상태이상 턴수 감소 및 해제
+apply_status_effect: 상태이상 효과(피해, 행동불능 등) 적용
+can_use_skill: 스킬 사용 가능 여부 확인
+use_skill: 스킬 사용 처리
+
+import random
+
+def update_status_effects(row):
+    """
+    상태이상 턴 감소 및 해제
+    row: dict (Battle_Data의 한 행)
+    """
+    if row['상태이상'] and row['상태이상'] != '없음':
+        effect, turns = row['상태이상'].split('(')
+        turns = int(turns.replace(')', '')) - 1
+        if turns <= 0:
+            row['상태이상'] = '없음'
+        else:
+            row['상태이상'] = f"{effect}({turns})"
+    return row
+
+def apply_status_effect(row):
+    """
+    상태이상 효과 적용 (피해, 행동불능 등)
+    """
+    if row['상태이상'].startswith('출혈'):
+        damage = random.randint(1, 5)
+        row['HP'] = max(0, row['HP'] - damage)
+    elif row['상태이상'].startswith('마비'):
+        if random.random() < 0.5:
+            row['행동불능'] = 'Y'
+        else:
+            row['행동불능'] = 'N'
+    # 석화, 발화 등 추가 구현 가능
+    return row
+
+def can_use_skill(row, skill_col):
+    """
+    스킬 사용 가능 여부 체크
+    """
+    return row[skill_col] != '사용'
+
+def use_skill(row, skill_col):
+    """
+    스킬 사용 처리
+    """
+    if can_use_skill(row, skill_col):
+        row[skill_col] = '사용'
+        return True
+    return False
+
+
+===
+
+4. 명령어/버튼 상호작용 플로우 구현 방법
+1) 명령어 입력값 및 예외 처리
+각 명령어(예: /공격, /스킬1, /퇴각 등)는 입력값(대상, 스킬명 등)을 반드시 검증
+잘못된 입력(대상 없음, 이미 사용한 스킬 등) 시 안내 메시지 전송
+
+# 예시: 공격 명령어 처리
+@bot.slash_command(name="공격")
+async def attack(ctx, target: str = None):
+    if not target:
+        await ctx.respond("대상을 선택하세요.")
+        return
+    # 공격 로직 진행
+
+2) 상호작용 버튼/리스트 제공
+행동 선택, 대상 선택 등은 Discord의 버튼 또는 셀렉트 메뉴로 제공
+버튼 클릭 시 콜백 함수에서 실제 로직 처리
+
+import discord
+from discord.ui import Button, View
+
+class ActionView(View):
+    def __init__(self, targets):
+        super().__init__()
+        for t in targets:
+            self.add_item(Button(label=t, custom_id=f"target_{t}"))
+
+@bot.slash_command(name="행동선택")
+async def choose_action(ctx):
+    targets = ["적1", "적2", "적3"]
+    await ctx.respond("대상을 선택하세요.", view=ActionView(targets))
+
+3) 상태/사용여부 체크
+명령어 실행 전 Battle_Data에서 스킬 사용여부, 행동불능 여부 등 체크
+이미 사용한 스킬이면 "이미 사용한 스킬입니다." 안내
+4) 플로우 예시
+명령어 입력 → 입력값 검증
+버튼/리스트로 대상 선택 → 선택 결과로 콜백 실행
+Battle_Data에서 상태 확인(스킬 사용, 행동불능 등)
+정상일 때만 효과 적용 및 결과 메시지 전송
+5) 에러/예외 안내
+모든 예외 상황(입력 누락, 잘못된 대상, 중복 사용 등)에 대해 명확한 안내 메시지 제공
+
+
+===
+
+
+6. 플레이어 데이터 관리 및 등록/업데이트 구현 방법
+1) UserData 시트 구조
+필요한 컬럼만 사용:
+| 디스코드ID | 캐릭터명 | 근력 | 민첩 | 건강 | 지능 | 지혜 | 인벤토리 |
+각 행이 한 명의 유저(또는 캐릭터)에 해당
+2) /등록 명령어 구현
+사용자가 /등록 명령어를 입력하면, 해당 유저의 디스코드ID와 기본 스탯(예: 5)으로 UserData에 새 행 추가
+이미 등록된 유저라면 "이미 등록되어 있습니다." 안내
+
+@bot.slash_command(name="등록")
+async def register(ctx, 캐릭터명: str):
+    user_id = str(ctx.author.id)
+    # 구글시트에서 UserData 불러오기
+    user_data = get_user_data_from_sheet()
+    for row in user_data:
+        if row['디스코드ID'] == user_id:
+            await ctx.respond("이미 등록되어 있습니다.")
+            return
+    # 신규 등록
+    new_row = {
+        '디스코드ID': user_id,
+        '캐릭터명': 캐릭터명,
+        '근력': 5, '민첩': 5, '건강': 5, '지능': 5, '지혜': 5,
+        '인벤토리': ''
+    }
+    append_user_data_to_sheet(new_row)
+    await ctx.respond(f"{캐릭터명} 등록 완료!")
+
+
+3) /시트업뎃 명령어 구현
+사용자가 /시트업뎃 명령어를 입력하면, UserData 시트를 새로고침(최신 데이터 반영)
+필요시 캐릭터 정보 수정도 가능
+4) 인벤토리 관리
+아이템 추가/삭제 명령어 구현 시, UserData의 인벤토리 컬럼을 쉼표(,)로 관리
+예시: /아이템추가 포션 → 인벤토리에 "포션" 추가
+5) 예외 처리
+입력값 누락, 잘못된 캐릭터명, 중복 등록 등 모든 예외 상황에 대해 안내 메시지 제공
+
+
+===
+
+
+
+## 7. PVP 구현 방법
+
+- PVP 대기열 (메모리/임시)
+pvp_queue: [디스코드ID, ...] 형태의 리스트
+
+### 1) **PVP 전투 구조**
+- 일반 전투와 동일하게 Battle_Data 시트를 사용
+- battle_id, 턴, 캐릭터명, 디스코드ID, 팀(아군/적), HP, 상태이상 등으로 관리
+- 팀 구분: PVP에서는 "팀1", "팀2" 또는 "플레이어1", "플레이어2" 등으로 구분
+
+---
+
+### 2) **PVP 참가 및 매칭**
+- `/pvp신청` 명령어로 참가 신청
+- 대기열(큐)에서 두 명(또는 3명씩) 매칭되면 새로운 battle_id로 전투 시작
+- Battle_Data에 각 플레이어 정보와 팀 정보 기록
+
+---
+
+### 3) **PVP 전투 진행**
+- 일반 전투와 동일한 턴/행동/상태이상/스킬/리미트브레이크 규칙 적용
+- 각 턴마다 행동 선택(공격, 스킬 등)
+- 승리 조건: 상대 팀 전원 전투불능 시 승리
+
+---
+
+### 4) **보상 지급**
+- 승리 팀의 모든 플레이어에게 코인 2개 지급
+- UserData 시트의 코인 컬럼을 찾아 +2
+
+---
+
+### 5) **코인 조회 명령어**
+- `/코인보유량` 명령어로 자신의 코인 개수 확인
+
+````python
+@bot.slash_command(name="코인보유량")
+async def coin_balance(ctx):
+    user_id = str(ctx.author.id)
+    user_data = get_user_data_from_sheet()
+    for row in user_data:
+        if row['디스코드ID'] == user_id:
+            await ctx.respond(f"현재 코인: {row.get('코인', 0)}개")
+            return
+    await ctx.respond("등록된 캐릭터가 없습니다.")
+````
+
+---
+
+### 6) **예외 및 상태 관리**
+- 이미 PVP 중인 유저는 중복 신청 불가
+- 전투 종료 시 Battle_Data에서 해당 battle_id 데이터 삭제 및 코인 지급
+
+---
+
+### 7) **요약**
+- 일반 전투와 동일한 구조로 Battle_Data 시트 활용
+- 참가/매칭/진행/보상/조회 명령어 구현
+- 코인 지급 및 상태 관리 추가
+
+
+
+## 1. **PVP 매칭 큐**
+
+- **큐 구조**: 전역 리스트(예: `pvp_queue = []`)로 관리
+- **/pvp신청 명령어**:  
+  - 신청 시 이미 큐에 있거나 전투 중이면 신청 불가  
+  - 큐에 추가  
+  - 큐에 2명(또는 3명) 모이면 자동 매칭 및 전투 시작
+
+```python
+pvp_queue = []
+
+@bot.slash_command(name="pvp신청")
+async def pvp_apply(ctx):
+    user_id = str(ctx.author.id)
+    if user_id in pvp_queue:
+        await ctx.respond("이미 PVP 대기열에 있습니다.")
+        return
+    # Battle_Data에서 전투 중인지 확인
+    if is_in_battle(user_id):
+        await ctx.respond("이미 전투 중입니다.")
+        return
+    pvp_queue.append(user_id)
+    await ctx.respond("PVP 대기열에 등록되었습니다.")
+    # 2명 이상이면 매칭
+    if len(pvp_queue) >= 2:
+        players = [pvp_queue.pop(0), pvp_queue.pop(0)]
+        start_pvp_battle(players)
+```
+
+---
+
+## 2. **팀 구분 및 Battle_Data 기록**
+
+- **팀 배정**: 매칭된 유저를 각각 "팀1", "팀2"로 구분  
+- **Battle_Data에 기록**: 각 플레이어의 캐릭터 정보, 팀, HP 등 기록
+
+```python
+def start_pvp_battle(players):
+    battle_id = generate_battle_id()
+    user_data = get_user_data_from_sheet()
+    battle_rows = []
+    for idx, user_id in enumerate(players):
+        user = next(row for row in user_data if row['디스코드ID'] == user_id)
+        team = f"팀{idx+1}"
+        hp = 10 + 2 * int(user['건강'])
+        battle_rows.append({
+            'battle_id': battle_id,
+            '턴': 1,
+            '캐릭터명': user['캐릭터명'],
+            '디스코드ID': user_id,
+            '팀': team,
+            'HP': hp,
+            '상태이상': '없음',
+            '스킬1': '미사용',
+            '스킬2': '미사용',
+            '리미트브레이크': '미사용',
+            '행동불능': 'N'
+        })
+    append_battle_data_to_sheet(battle_rows)
+    # 각 유저에게 전투 시작 메시지 전송
+```
+
+---
+
+## 3. **보상 지급**
+
+- **승리 팀 판정**: Battle_Data에서 한 팀의 모든 HP가 0이면 상대 팀 승리
+- **코인 지급**: UserData 시트의 해당 유저 코인 컬럼 +2
+
+```python
+def give_pvp_reward(winner_team, battle_id):
+    battle_data = get_battle_data_from_sheet(battle_id)
+    user_data = get_user_data_from_sheet()
+    for row in battle_data:
+        if row['팀'] == winner_team and row['디스코드ID']:
+            user = next(u for u in user_data if u['디스코드ID'] == row['디스코드ID'])
+            user['코인'] = int(user.get('코인', 0)) + 2
+    update_user_data_to_sheet(user_data)
+```
+
+---
+
+## 4. **요약 플로우**
+
+1. `/pvp신청` → 큐에 등록, 2명 모이면 자동 매칭
+2. 매칭 시 Battle_Data에 팀 구분하여 기록
+3. 전투 종료 시 승리 팀 판정 → UserData에 코인 2개 지급
+
+
+아래는 3vs3 PVP, 대기열 안내, 전투 종료 처리에 대한 구체적인 설계와 예시입니다.
+
+---
+
+## 1. **3vs3 PVP 매칭**
+
+- **큐 구조**: `pvp_queue = []` (전역 리스트)
+- **매칭 조건**: 6명 모이면 자동 매칭, 3명씩 팀 배정
+
+```python
+pvp_queue = []
+
+@bot.slash_command(name="pvp신청")
+async def pvp_apply(ctx):
+    user_id = str(ctx.author.id)
+    if user_id in pvp_queue:
+        await ctx.respond("이미 PVP 대기열에 있습니다.")
+        return
+    if is_in_battle(user_id):
+        await ctx.respond("이미 전투 중입니다.")
+        return
+    pvp_queue.append(user_id)
+    await ctx.respond(f"PVP 대기열에 등록되었습니다. 현재 대기 인원: {len(pvp_queue)}명")
+    # 6명 이상이면 3vs3 매칭
+    if len(pvp_queue) >= 6:
+        players = [pvp_queue.pop(0) for _ in range(6)]
+        start_pvp_battle(players, team_size=3)
+```
+
+---
+
+## 2. **대기열 안내**
+
+- **/pvp대기열** 명령어로 현재 대기 인원 및 리스트 안내
+
+```python
+@bot.slash_command(name="pvp대기열")
+async def pvp_queue_status(ctx):
+    if not pvp_queue:
+        await ctx.respond("현재 대기 중인 유저가 없습니다.")
+    else:
+        await ctx.respond(f"현재 대기 인원: {len(pvp_queue)}명\n" +
+                          "\n".join([f"{idx+1}. <@{uid}>" for idx, uid in enumerate(pvp_queue)]))
+```
+
+---
+
+## 3. **팀 구분 및 Battle_Data 기록 (3vs3)**
+
+```python
+def start_pvp_battle(players, team_size=3):
+    battle_id = generate_battle_id()
+    user_data = get_user_data_from_sheet()
+    battle_rows = []
+    for idx, user_id in enumerate(players):
+        user = next(row for row in user_data if row['디스코드ID'] == user_id)
+        team = f"팀{1 if idx < team_size else 2}"
+        hp = 10 + 2 * int(user['건강'])
+        battle_rows.append({
+            'battle_id': battle_id,
+            '턴': 1,
+            '캐릭터명': user['캐릭터명'],
+            '디스코드ID': user_id,
+            '팀': team,
+            'HP': hp,
+            '상태이상': '없음',
+            '스킬1': '미사용',
+            '스킬2': '미사용',
+            '리미트브레이크': '미사용',
+            '행동불능': 'N'
+        })
+    append_battle_data_to_sheet(battle_rows)
+    # 각 유저에게 전투 시작 메시지 전송
+```
+
+---
+
+## 4. **전투 종료 처리**
+
+- **승리 조건**: 한 팀의 모든 플레이어 HP가 0(전투불능)이면 상대 팀 승리
+- **처리 플로우**:
+  1. Battle_Data에서 해당 battle_id의 팀별 HP 확인
+  2. 승리 팀 판정 후 보상 지급
+  3. Battle_Data에서 해당 battle_id 데이터 삭제
+
+```python
+def check_and_finish_pvp_battle(battle_id):
+    battle_data = get_battle_data_from_sheet(battle_id)
+    teams = set(row['팀'] for row in battle_data)
+    for team in teams:
+        if all(int(row['HP']) <= 0 for row in battle_data if row['팀'] == team):
+            winner_team = next(t for t in teams if t != team)
+            give_pvp_reward(winner_team, battle_id)
+            delete_battle_data_from_sheet(battle_id)
+            # 각 유저에게 결과 메시지 전송
+            return winner_team
+    return None
+```
+
+---
+
+## 5. **요약**
+
+- 3vs3: 6명 모이면 3명씩 팀 배정, Battle_Data에 기록
+- 대기열 안내: /pvp대기열 명령어로 현재 대기 인원 확인
+- 전투 종료: 한 팀 전원 전투불능 시 자동 종료, 보상 지급 및 데이터 삭제
+
+
+====
+
+## 6. 예외 및 상태 관리
+
+### 1) **중복 신청/중복 전투 방지**
+
+- **PVP 대기열 중복**: 이미 큐에 있으면 신청 불가
+- **전투 중복**: Battle_Data에서 해당 유저가 이미 전투 중이면 신청 불가
+
+```python
+def is_in_battle(user_id):
+    battle_data = get_battle_data_from_sheet()
+    for row in battle_data:
+        if row['디스코드ID'] == user_id and int(row['HP']) > 0:
+            return True
+    return False
+
+@bot.slash_command(name="pvp신청")
+async def pvp_apply(ctx):
+    user_id = str(ctx.author.id)
+    if user_id in pvp_queue:
+        await ctx.respond("이미 PVP 대기열에 있습니다.")
+        return
+    if is_in_battle(user_id):
+        await ctx.respond("이미 전투 중입니다.")
+        return
+    # ...이하 생략...
+```
+
+---
+
+### 2) **전투 종료 시 데이터 삭제 및 보상 지급**
+
+- **Battle_Data에서 해당 battle_id 데이터 삭제**
+- **UserData에 코인 지급**
+- **결과 메시지 전송**
+
+```python
+def check_and_finish_pvp_battle(battle_id):
+    battle_data = get_battle_data_from_sheet(battle_id)
+    teams = set(row['팀'] for row in battle_data)
+    for team in teams:
+        if all(int(row['HP']) <= 0 for row in battle_data if row['팀'] == team):
+            winner_team = next(t for t in teams if t != team)
+            give_pvp_reward(winner_team, battle_id)
+            delete_battle_data_from_sheet(battle_id)
+            # 결과 메시지 전송
+            return winner_team
+    return None
+```
+
+---
+
+### 3) **예외 안내 메시지**
+
+- 중복 신청, 전투 중, 잘못된 명령 등 모든 예외 상황에 대해 명확한 안내 메시지 제공
+
+---
+
+### 4) **요약**
+
+- 중복 신청/전투 방지
+- 전투 종료 시 데이터 삭제 및 보상 지급
+- 모든 예외 상황에 대해 안내 메시지 제공

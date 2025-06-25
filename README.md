@@ -1,4 +1,4 @@
-작업 영역 정보 수집# Librarian Moogle - Discord RPG Battle System
+# Librarian Moogle - Discord RPG Battle System
 
 Discord 봇 기반의 턴제 RPG 전투 시스템입니다. Google Sheets를 데이터베이스로 활용하여 캐릭터 정보와 전투 데이터를 관리합니다.
 

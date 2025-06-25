@@ -4,11 +4,10 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from datetime import datetime
-import pytz
-from utility import *
 import logging
+import time # time 모듈 추가
 
-gc = gspread.service_account()
+gc = gspread.service_account(filename="dogwood-method-448216-f4-4023cd31106c.json")
 
 SCOPE = [
     "https://spreadsheets.google.com/feeds",
@@ -19,18 +18,34 @@ SCOPE = [
 creds = ServiceAccountCredentials.from_json_keyfile_name("dogwood-method-448216-f4-4023cd31106c.json", scopes=SCOPE)
 gspread_client = gspread.authorize(creds)
 
-# 각 시트 객체
-sheet_user = gspread_client.open("Moogle_Escordia").worksheet("char")
-sheet_boss = gspread_client.open("Moogle_Escordia").worksheet("BossData")
-sheet_quests = gspread_client.open("Moogle_Escordia").worksheet("Quest")
-sheet_BossLog = gspread_client.open("Moogle_Escordia").worksheet("BossBattleLog")
-sheet_log_A = gspread_client.open("Moogle_Escordia").worksheet("BattleLogA")
-sheet_log_B = gspread_client.open("Moogle_Escordia").worksheet("BattleLogB")
-sheet_group_A = gspread_client.open("Moogle_Escordia").worksheet("BattleGroupA")
-sheet_group_B = gspread_client.open("Moogle_Escordia").worksheet("BattleGroupB")
-sheet_enemy_A = gspread_client.open("Moogle_Escordia").worksheet("GroupAEnemy")
-sheet_enemy_B = gspread_client.open("Moogle_Escordia").worksheet("GroupBEnemy")
-sheet_shop = gspread_client.open("Moogle_Escordia").worksheet("ShopData")
+def open_worksheet_with_retry(spreadsheet_name, worksheet_name, retries=5, delay=5):
+    """API 오류 발생 시 재시도 로직을 포함하여 워크시트를 엽니다."""
+    for i in range(retries):
+        try:
+            spreadsheet = gspread_client.open(spreadsheet_name)
+            return spreadsheet.worksheet(worksheet_name)
+        except gspread.exceptions.APIError as e:
+            # 500번대 서버 오류일 경우에만 재시도
+            if 500 <= e.response.status_code < 600:
+                wait_time = delay * (i + 1)
+                print(f"Google Sheets API 서버 오류 ({e.response.status_code}) 발생. {wait_time}초 후 재시도합니다... ({i + 1}/{retries})")
+                time.sleep(wait_time) # 점차 대기 시간 증가
+            else:
+                raise # 그 외 다른 API 오류는 즉시 발생시킴
+    raise Exception(f"{retries}번 재시도 후에도 '{worksheet_name}' 워크시트를 열 수 없습니다.")
+
+# 각 시트 객체 (재시도 로직 적용)
+sheet_user = open_worksheet_with_retry("Moogle_Escordia", "PlayerData")
+sheet_boss = open_worksheet_with_retry("Moogle_Escordia", "BossData")
+sheet_quests = open_worksheet_with_retry("Moogle_Escordia", "Quest")
+sheet_BossLog = open_worksheet_with_retry("Moogle_Escordia", "BossBattleLog")
+sheet_log_A = open_worksheet_with_retry("Moogle_Escordia", "BattleLogA")
+sheet_log_B = open_worksheet_with_retry("Moogle_Escordia", "BattleLogB")
+sheet_group_A = open_worksheet_with_retry("Moogle_Escordia", "BattleGroupA")
+sheet_group_B = open_worksheet_with_retry("Moogle_Escordia", "BattleGroupB")
+sheet_enemy_A = open_worksheet_with_retry("Moogle_Escordia", "GroupAEnemy")
+sheet_enemy_B = open_worksheet_with_retry("Moogle_Escordia", "GroupBEnemy")
+sheet_shop = open_worksheet_with_retry("Moogle_Escordia", "ShopData")
 
 logger = logging.getLogger(__name__)
 
@@ -252,16 +267,16 @@ class Character(commands.Cog):
         except Exception as e:
             print(f"An error occurred: {e}")
 
-    async def group_update_act(target_id: int, group, option="y"):
+    async def group_update_act(self, target_id: int, group, option="y"):
         """ID와 그룹 이름을 입력하면 해당 캐릭터 및 적을 행동한 상태로 만듭니다. 기본 옵션은 y"""
         if group == "A":
-            await group_a_update(target_id, "act", option)
+            await Character.group_a_update(target_id, "act", option)
         elif group == "B":
-            await group_b_update(target_id, "act", option)
+            await Character.group_b_update(target_id, "act", option)
         else:
             print(f"act update group value is {group}")
 
-    def is_true(value: str) -> bool:
+    def is_true(self, value: str) -> bool:
         """입력 값을 Boolean으로 변환"""
         lowered = value.lower()
         if lowered in ('yes', 'y', 'true', 't', '1', 'enable', 'on'):
@@ -276,14 +291,14 @@ class Character(commands.Cog):
                 column_values = sheet_group_A.col_values(11)
                 # 첫 번째 행(헤더)을 제외한 나머지 값 확인
                 for value in column_values[1:]:  # 헤더 제외
-                    if not is_true(value):  # Boolean 변환 함수 사용
+                    if not self.is_true(value):  # Boolean 변환 함수 사용
                         return False
                 return True
             elif group == "B":
                 column_values = sheet_group_B.col_values(11)
                 # 첫 번째 행(헤더)을 제외한 나머지 값 확인
                 for value in column_values[1:]:  # 헤더 제외
-                    if not is_true(value):  # Boolean 변환 함수 사용
+                    if not self.is_true(value):  # Boolean 변환 함수 사용
                         return False
                 return True
             else:
@@ -623,3 +638,191 @@ class Character(commands.Cog):
 
         # Embed 메시지 전송
         await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="캐릭터생성", description="새로운 캐릭터를 생성합니다.")
+    @app_commands.describe(
+        캐릭터명="캐릭터의 이름을 입력하세요",
+        직업="직업을 선택하세요 (tank/healer/melee/ranged/magic)"
+    )
+    async def 캐릭터생성(self, interaction: discord.Interaction, 캐릭터명: str, 직업: str):
+        """캐릭터를 생성하고 구글 시트에 등록합니다."""
+        try:
+            user_id = interaction.user.id
+            
+            # 1. 이미 등록된 유저인지 확인
+            existing_stats = self.get_user_values(user_id)
+            if existing_stats:
+                await interaction.response.send_message(
+                    f"❌ 이미 등록된 캐릭터가 있어, 쿠뽀! \n"
+                    f"기존 캐릭터: **{existing_stats[1]}** ({existing_stats[2]})\n"
+                    f"새로운 캐릭터를 만들고 싶다면 관리자에게 문의해줘.",
+                    ephemeral=True
+                )
+                return
+                
+            # 2. 직업 유효성 검사
+            valid_jobs = ["tank", "healer", "melee", "ranged", "magic"]
+            if 직업.lower() not in valid_jobs:
+                await interaction.response.send_message(
+                    f"❌ 잘못된 직업이야, 쿠뽀! \n"
+                    f"사용 가능한 직업: **{', '.join(valid_jobs)}**",
+                    ephemeral=True
+                )
+                return
+                
+            # 3. 캐릭터명 중복 확인
+            all_names = await self.get_column_data("char", "name")
+            if 캐릭터명 in all_names:
+                await interaction.response.send_message(
+                    f"❌ **{캐릭터명}** 은(는) 이미 사용 중인 이름이야, 쿠뽀! 다른 이름을 선택해줘.",
+                    ephemeral=True
+                )
+                return
+                
+            # 4. 직업별 기본 스탯 설정
+            base_stats = self._get_job_base_stats(직업.lower())
+            
+            # 5. 새 캐릭터 데이터 생성
+            new_character_data = [
+                user_id,                    # A: id (Discord ID)
+                캐릭터명,                   # B: name
+                직업.lower(),               # C: job
+                0,                          # D: battle_participants (전투 참가 여부)
+                "",                         # E: battle_id (전투 그룹)
+                base_stats["hp"],           # F: hp
+                base_stats["attack_dice"],  # G: attack_dice (공격 주사위)
+                base_stats["strength"],     # H: strength (근력)
+                base_stats["dexterity"],    # I: dexterity (민첩)
+                base_stats["constitution"], # J: constitution (건강)
+                base_stats["intelligence"], # K: intelligence (지능)
+                base_stats["modifier"],     # L: modifier (보정치)
+                base_stats["skill1"],       # M: skill1
+                base_stats["skill2"],       # N: skill2
+                base_stats["limit_break"],  # O: limit_break
+                base_stats["skill1_desc"],  # P: skill1_description
+                base_stats["skill2_desc"],  # Q: skill2_description
+                base_stats["lb_desc"]       # R: limit_break_description
+            ]
+            
+            # 6. 구글 시트에 추가
+            sheet_user.append_row(new_character_data)
+            
+            # 7. 성공 메시지 생성
+            embed = discord.Embed(
+                title="🎉 캐릭터 생성 완료!",
+                description=f"**{캐릭터명}** ({직업})이(가) 성공적으로 생성되었어, 쿠뽀!",
+                color=0x00FF00
+            )
+            
+            embed.add_field(name="📊 기본 스탯", value=f"""
+            **HP**: {base_stats['hp']}
+            **공격 주사위**: {base_stats['attack_dice']}
+            **근력**: {base_stats['strength']} | **민첩**: {base_stats['dexterity']}
+            **건강**: {base_stats['constitution']} | **지능**: {base_stats['intelligence']}
+            **보정치**: {base_stats['modifier']}
+            """, inline=False)
+            
+            embed.add_field(name="🎯 스킬 정보", value=f"""
+            **스킬 1**: {base_stats['skill1']}
+            **스킬 2**: {base_stats['skill2']}
+            **리미트 브레이크**: {base_stats['limit_break']}
+            """, inline=False)
+            
+            embed.add_field(name="📖 사용법", value="""
+            `/내스탯` - 캐릭터 정보 확인
+            `/전투준비` - 전투 참가
+            `/행동` - 전투 중 행동 선택
+            """, inline=False)
+            
+            await interaction.response.send_message(embed=embed)
+            
+            logger.info(f"New character created: {캐릭터명} ({직업}) for user {user_id}")
+            
+        except Exception as e:
+            logger.error(f"Error creating character: {e}")
+            await interaction.response.send_message(
+                "❌ 캐릭터 생성 중 오류가 발생했어, 쿠뽀! 관리자에게 문의해줘.",
+                ephemeral=True
+            )
+
+    def _get_job_base_stats(self, job: str) -> dict:
+        """직업별 기본 스탯을 반환합니다."""
+        job_stats = {
+            "tank": {
+                "hp": 30,  # 기본 10 + 건강 2*5 + 직업 보너스 10
+                "attack_dice": "1d12",
+                "strength": 8,
+                "dexterity": 4,
+                "constitution": 5,
+                "intelligence": 3,
+                "modifier": 8,  # 근력 기반
+                "skill1": "대신받기",
+                "skill2": "무적화",
+                "limit_break": "전체 보호",
+                "skill1_desc": "아군 한 명이 받는 공격을 대신 받습니다. 받는 피해는 50% 감소. (3턴간)",
+                "skill2_desc": "한 턴 동안 모든 공격이 무효화됩니다.",
+                "lb_desc": "2턴간 모든 아군이 받는 공격을 대신 받으며, 첫 턴은 무적, 둘째 턴은 50% 감소, 셋째 턴은 70% 감소"
+            },
+            "healer": {
+                "hp": 15,  # 기본 10 + 건강 2*5 - 힐러 페널티
+                "attack_dice": "1d10",
+                "strength": 3,
+                "dexterity": 6,
+                "constitution": 5,
+                "intelligence": 8,
+                "modifier": 8,  # 민첩/지능 중 높은 값
+                "skill1": "단일 회복",
+                "skill2": "전체 회복",
+                "limit_break": "완전 회복",
+                "skill1_desc": "지정 대상을 최대 HP까지 회복합니다.",
+                "skill2_desc": "아군 전체를 1d10+보정치만큼 회복합니다.",
+                "lb_desc": "모든 아군을 최대 HP로 회복하고, 전투불능 아군도 소생시킵니다."
+            },
+            "melee": {
+                "hp": 25,  # 기본 10 + 건강 2*5 + 직업 보너스 5
+                "attack_dice": "1d20",
+                "strength": 8,
+                "dexterity": 5,
+                "constitution": 5,
+                "intelligence": 2,
+                "modifier": 8,  # 근력 기반
+                "skill1": "강화 공격",
+                "skill2": "연속 공격",
+                "limit_break": "필살 일격",
+                "skill1_desc": "적 하나에게 1d20+근력+1d10의 피해를 줍니다.",
+                "skill2_desc": "적 하나에게 1d20+근력+1d20의 피해를 줍니다.",
+                "lb_desc": "적 하나에게 2d20+근력의 강력한 피해를 줍니다."
+            },
+            "ranged": {
+                "hp": 20,  # 기본 10 + 건강 2*5
+                "attack_dice": "1d20",
+                "strength": 4,
+                "dexterity": 8,
+                "constitution": 5,
+                "intelligence": 3,
+                "modifier": 8,  # 민첩 기반
+                "skill1": "출혈 공격",
+                "skill2": "광역 공격",
+                "limit_break": "상태이상 난사",
+                "skill1_desc": "전체 적에게 출혈 상태를 부여합니다. (5턴간 매턴 1d5 피해)",
+                "skill2_desc": "전체 적에게 1d20+민첩-1d5의 피해를 줍니다.",
+                "lb_desc": "모든 적에게 랜덤 상태이상을 부여하고 1d20+민첩+1d5의 피해를 줍니다."
+            },
+            "magic": {
+                "hp": 15,  # 기본 10 + 건강 2*5 - 마법사 페널티
+                "attack_dice": "1d20",
+                "strength": 2,
+                "dexterity": 5,
+                "constitution": 5,
+                "intelligence": 8,
+                "modifier": 8,  # 지능 기반
+                "skill1": "마비 공격",
+                "skill2": "지연 공격",
+                "limit_break": "대화염",
+                "skill1_desc": "전체 적에게 마비를 부여합니다. (3턴간 50% 확률로 행동 불가)",
+                "skill2_desc": "적 하나에게 1d20+지능+1d25의 피해를 줍니다. (1턴 후 발동, 시전 후 1턴 행동 불가)",
+                "lb_desc": "모든 적에게 발화 상태를 부여하고 2d20+1d10의 피해를 줍니다."
+            }
+        }
+        
+        return job_stats.get(job, job_stats["melee"])  # 기본값은 melee

@@ -15,10 +15,10 @@ class BattleSystem(commands.Cog):
 
     async def user_turn_manager(self, interaction: discord.Interaction):
         user_id = int(interaction.user.id)
-        stats = Character.get_user_values(self, user_id)
+        stats = Character.get_user_values(user_id)
         group_name = stats[4]
         if group_name == "A":
-            await Character.group_update_act(user_id, "A")
+            await Character.group_update_act(self, user_id, "A")
             allact = Character.all_act(self, "A")
             if allact == True:
                 Character.add_turn(self, "A")
@@ -26,7 +26,7 @@ class BattleSystem(commands.Cog):
             else:
                 return
         elif group_name == "B":
-            await Character.group_update_act(user_id, "B")
+            await Character.group_update_act(self, user_id, "B")
             allact = Character.all_act(self, "B")
             if allact == True:
                 Character.add_turn(self, "B")
@@ -38,29 +38,29 @@ class BattleSystem(commands.Cog):
 
     async def user_atk_success_roll(self, interaction: discord.Interaction):
         user_id = int(interaction.user.id)
-        stats = Character.get_user_values(self, user_id)
+        stats = Character.get_user_values(user_id)
         ar_val = stats[11]
-        roll = int(Utility.dice_roller(20)) + int(ar_val)
+        roll = int(Utility.dice_roller(self, 20)) + int(ar_val)
         return roll
 
     async def user_raw_damage(self, interaction: discord.Interaction):
         user_id = int(interaction.user.id)
-        stats = Character.get_user_values(self, user_id)
+        stats = Character.get_user_values(user_id)
         atk_dice = stats[6]
         ar_val = stats[11]
-        roll = int(Utility.dice_roller(atk_dice)) + int(ar_val)
+        roll = int(Utility.dice_roller(self, atk_dice)) + int(ar_val)
         return roll
     
     async def enemy_raw_damage(self, group_name: str, enemy_id: int):
         stats = Character.get_enemy_values(self, group_name, enemy_id)
         atk_dice = stats[6]
         ar_val = stats[11]
-        roll = int(Utility.dice_roller(atk_dice)) + int(ar_val)
+        roll = int(Utility.dice_roller(self, atk_dice)) + int(ar_val)
         return roll
     
     async def user_difficulty_class(self, interaction: discord.Interaction):
         user_id = int(interaction.user.id)
-        stats = Character.get_user_values(self, user_id)
+        stats = Character.get_user_values(user_id)
         user_dc = int(int(stats[7]) + int(stats[8]) + int(stats[10]))
         return user_dc
     
@@ -114,16 +114,16 @@ class BattleSystem(commands.Cog):
         if group_name in ["A", "B"]:
             stats2 = Character.get_every_sheet_user_values(self, f"BattleGroup{group_name}", user_id)
             user_act = stats2[8]
-            return Character.is_true(user_act)
+            return Character.is_true(self, user_act)
         else:
             print(f"user_is_your_turn error by {user_id}.")
             return False
         
-    async def group_logging(self, target_id, ):
-        #TODO: 배틀 로그 말고 다른 로그 스프레드 시트를 만들어야 함.
+    # async def group_logging(self, target_id, ):
+    #     #TODO: 배틀 로그 말고 다른 로그 스프레드 시트를 만들어야 함.
 
-    async def turn_over(self, group_name= "A"):
-        #TODO: 배틀로그에 최종적으로 계산된 데미지와 버프 등과 사망여부 확인을 해줄 커맨드 
+    # async def turn_over(self, group_name= "A"):
+    #     #TODO: 배틀로그에 최종적으로 계산된 데미지와 버프 등과 사망여부 확인을 해줄 커맨드 
 
 class BattleValidator:
     #TODO

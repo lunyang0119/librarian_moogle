@@ -121,10 +121,9 @@ class Job(commands.Cog):
                         f"받은 피해: {mitigated_damage}",
                         ephemeral=True
                     )
-
-    except Exception as e:
-        print(f"An error occurred in user_skill1_logic: {e}")
-        await interaction.response.send_message("스킬 실행 중 오류가 발생했습니다.", ephemeral=True)
+        except Exception as e:
+            print(f"An error occurred in user_skill1_logic: {e}")
+            await interaction.response.send_message("스킬 실행 중 오류가 발생했습니다.", ephemeral=True)
 
 
     

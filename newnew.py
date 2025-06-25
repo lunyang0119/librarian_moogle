@@ -1,15 +1,14 @@
 import discord
-import discord.py
-from discord.ui import view
+from discord import app_commands
 import asyncio
 from discord.ext import commands
 import random 
 import os 
 from dotenv import load_dotenv
-
-from gspread_manager import *
-from discord_battle_system import *
+from gspread_manager import Character
+from discord_battle_system import BattleSystem
 from job import Job
+import traceback
 
 load_dotenv()
 
@@ -17,16 +16,55 @@ moogle_token = os.getenv('moogle_token')
 test_token = os.getenv('test_token')
 
 # Bot initialization
-intents = discord.Intents.all()
+intents = discord.Intents.default()
+intents.messages = True
+intents.message_content = True
+intents.guilds = True
+intents.members = True
 activity = discord.Activity(type=discord.ActivityType.watching, name="!start")
 bot = commands.Bot(command_prefix='!', intents=intents, activity=activity)
 
 
 @bot.event
 async def on_ready():
-    await bot.add_cog(Character(bot))
-    print(f"{bot.user.name} 로그인 성공")
-    await bot.change_presence(status=discord.Status.online, activity=discord.Game('폼폼 빠지게 일하는 중이니까 방해하지마 쿠뽀!'))
+    print(f'Logged in as {bot.user} (ID: {bot.user.id})')
+    print('------')
+    
+    # 로드할 Cog 클래스 목록
+    cogs_to_load = [
+        Character,
+        BattleSystem,
+        Job,
+        Utility,
+        Act,
+        UserCheck
+    ]
+    
+    # 상세한 로그와 함께 Cog 로드
+    for cog_class in cogs_to_load:
+        try:
+            # 클래스의 인스턴스를 생성하여 cog로 추가
+            await bot.add_cog(cog_class(bot))
+            print(f"✅ Cog '{cog_class.__name__}' loaded successfully.")
+            await bot.change_presence(status=discord.Status.online, activity=discord.Game('폼폼 빠지게 일하는 중이니까 방해하지마 쿠뽀!'))
+        except Exception as e:
+            # 오류 발생 시 어떤 Cog에서 문제인지 출력
+            print(f"❌ Failed to load cog '{cog_class.__name__}':")
+            traceback.print_exc() # 전체 오류 트레이스백 출력
+
+    # 슬래시 커맨드 동기화
+    try:
+        # 특정 서버(길드)에만 동기화하여 속도 향상 (테스트 시 권장)
+        # guild = discord.Object(id=YOUR_SERVER_ID) # 여기에 테스트 서버 ID를 숫자로 입력
+        # synced = await bot.tree.sync(guild=guild)
+        
+        # 모든 서버에 동기화 (전역)
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} slash commands.")
+    except Exception as e:
+        print(f"❌ Failed to sync slash commands:")
+        traceback.print_exc()
+    
 
 #######################################
 #
@@ -171,7 +209,6 @@ class SkillInteraction(discord.ui.View):
     
     async def skill_1(self, interaction: discord.Interaction):
         user_job = await self._get_user_job(interaction.user.id)
-        
         if user_job == "tank":
             target_type = "ally"
         elif user_job == "heal":
@@ -339,7 +376,7 @@ class SkillTargetSelect(discord.ui.View):
 
 @app_commands.command(name="전투준비", description="그룹을 선택하여 전투합니다.")
 @app_commands.describe(option="그룹명: A, B, boss 중 하나 선택; 기본값은 A")
-async def 전투준비(interaction: discord.Interaction, option = "A"):
+async def 전투준비(interaction: discord.Interaction, option: str = "A"):
     user_id = interaction.user.id
     lowered = option.lower()
     if lowered == "a":
@@ -369,15 +406,15 @@ async def 전투준비(interaction: discord.Interaction, option = "A"):
 
 @app_commands.command(name="전투참가", description="그룹을 선택하여 전투에 참가합니다.")
 @app_commands.describe(option="그룹명: A, B, boss 중 하나 선택; 기본값은 A")
-async def 참가(interaction: discord.Interaction, option = "A"):
+async def 참가(interaction: discord.Interaction, option: str = "A"):
     user_id = interaction.user.id
     lowered = option.lower()
-    if lowered == "A" or "a":
+    if lowered == "a":
         await Character.make_battle_id_part(self, user_id, "A") #해당 그룹 시트에 유저 데이터 올림
         await Character.update_user_row(self, user_id, "battle_participants", 1)
         await Character.update_user_row(self, user_id, "battle_id", "A")
         await interaction.response.send_message("{interaction.user.display_name}의 A그룹 로그 리셋 및 참가가 완료되었어 쿠뽀.\n더 참가할 사람들은 `/참가` 커맨드를 써주고, 참가자가 모두 모였다면 `/준완`으로 전투를 시작해줘 쿠뽀.")
-    elif lowered == "B" or "b":
+    elif lowered == "b":
         await Character.make_battle_id_part(self, user_id, "B") #해당 그룹 시트에 유저 데이터 올림
         await Character.update_user_row(self, user_id, "battle_participants", 1)
         await Character.update_user_row(self, user_id, "battle_id", "B")
@@ -391,9 +428,9 @@ async def 참가(interaction: discord.Interaction, option = "A"):
         print(f"전투준비 option error: {option}")
         await interaction.response.send_message("미안하지만 그룹 이름이 잘못 입력된 것 같아, 쿠뽀. 다시 한 번 입력해줄래?\nA나 B, 혹은 boss를 입력하면 돼. 소문자로 입력해도 괜찮아.", ephemeral=True)
 
-@app_commands.command(name="전투 준비 완료", description="그룹을 선택하여 전투를 개시합니다.")
+@app_commands.command(name="준완", description="그룹을 선택하여 전투를 개시합니다.")
 @app_commands.describe(option="그룹명: A, B, boss 중 하나 선택; 기본값은 A")
-async def 준완(interaction: discord.Interaction, option = "A"):
+async def 준완(interaction: discord.Interaction, option: str = "A"):
     lowered = option.lower()
     if lowered == "a":
         await Character.update_cell_values(self, "BattleLogA", 2, 1, 0)
@@ -630,7 +667,7 @@ async def 준완(interaction: discord.Interaction, option = "A"):
 async def 행동(interaction: discord.Interaction):
     await interaction.response.send_message('네 차례야, 쿠뽀!', view=BattleInteraction())
 
-@app_commands.command(name="코그 확인", description="(관리자용 커맨드) 등록된 코그 목록을 출력합니다.")
+@app_commands.command(name="코그출력", description="(관리자용 커맨드) 등록된 코그 목록을 출력합니다.")
 async def 코그출력(interaction: discord.Interaction):
     await interaction.response.send_message(str(bot.cogs), ephemeral=True)
 

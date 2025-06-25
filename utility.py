@@ -6,18 +6,17 @@ from discord.ext import commands
 import time
 import datetime
 import asyncio
-
-import gspread_manager as g_mang
+from gspread_manager import Character
 
 class Utility(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
+    @staticmethod
     def dice_roller(sides: int):
         dice = random.randint(1, sides)
         return dice
 
-    async def shop_reset(bot: discord.ext.commands.Bot):
+    async def shop_reset(self, bot: discord.ext.commands.Bot):
         while True:
             today = datetime.date.today()
             today_week = today.weekday()
@@ -38,7 +37,7 @@ class Act(commands.Cog):
     @app_commands.command(name='대인행동', description="대인행동")
     @app_commands.describe(option="y: 3개의 응답 중 하나만 선택; 기본값은 n")
     async def 대인행동(self, interaction: discord.Interaction, option: str = "n"):
-        roll = dice_roller(10)
+        roll = Utility.dice_roller(10)
         responses = {
             1: "협력한다 / 애원한다 / 웃는다", 
             2: "굴복한다 / 안도한다 / 협상한다", 
@@ -67,7 +66,7 @@ class Act(commands.Cog):
     @app_commands.command(name='일반행동', description="일반행동")
     @app_commands.describe(option="y: 3개의 응답 중 하나만 선택; 기본값은 n")
     async def 일반행동(self, interaction: discord.Interaction, option: str = "n"):
-        roll = dice_roller(10)
+        roll = Utility.dice_roller(10)
         responses = {
             1: "기대보다 효과적이었다 / 사람이 더 필요하다 / 사라졌다",
             2: "예상치 못한 문제가 발생했다 / 만족스러웠다 / 힘만 뺐다", 
@@ -96,7 +95,7 @@ class Act(commands.Cog):
     @app_commands.command(name='전투행동', description="전투행동")
     @app_commands.describe(option="y: 3개의 응답 중 하나만 선택; 기본값은 n")
     async def 전투행동(self, interaction: discord.Interaction, option: str = "n"):
-        roll = dice_roller(10)
+        roll = Utility.dice_roller(10)
         responses = {
             1: "적중했다 / 숨겼다 / 떨어졌다", 
             2: "빗나갔다 / 바꾸었다 / 무너뜨렸다", 
@@ -124,7 +123,7 @@ class Act(commands.Cog):
 
     @app_commands.command(name='책찾기', description="10가지 유형의 책 중 랜덤하게 하나를 뽑습니다.")
     async def 책찾기(self, interaction: discord.Interaction, option: str = "n"):
-        roll = dice_roller(10)
+        roll = Utility.dice_roller(10)
         responses = {
             1: "우리 중 누군가와 똑같은 이름을 가진 인물이 등장하는 이야기가 쓰여 있는 책을 발견했다.", 
             2: "날카로운 이빨로 사람을 깨무는 책을 발견했다.", 
@@ -145,8 +144,8 @@ class Act(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name='행동', description="효과가 있다 / 없다")
-    async def 행동(interaction: discord.Interaction):
+    @app_commands.command(name="행동", description="효과가 있다 / 없다")
+    async def 행동(self, interaction: discord.Interaction):
         result = random.choice(["효과가 있어보여 쿠뽀!", "아무 일도 일어나지 않았어 쿠뽀...."])
         embed = discord.Embed(
             title=f"{interaction.user.display_name}이(가) 행동했어, 쿠뽀!",
@@ -160,20 +159,13 @@ class UserCheck(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name="시트업뎃", description="구글 시트를 다시 불러옵니다.")
-    async def 시트업뎃(interaction: discord.Interaction):
+    async def 시트업뎃(self, interaction: discord.Interaction):
         try:
-            g_mang.reload_sheet()
+            Character.reload_sheet()
             await interaction.response.send_message("구글 시트를 성공적으로 다시 불러왔습니다!")
         except Exception as e:
             await interaction.response.send_message(f"시트를 다시 불러오는 중 오류가 발생했습니다: {e}")
 
-    @app_commands.command(name="코인보유량", description="내 코인 보유량을 확인합니다.")
-    async def 내코인(interaction: discord.Interaction):
-        #ToDo
-
-
-
-    
-
-
-        
+    # @app_commands.command(name="코인보유량", description="내 코인 보유량을 확인합니다.")
+    # async def 내코인(interaction: discord.Interaction):
+    #     #ToDo

@@ -66,18 +66,20 @@ class BattleSystem(commands.Cog):
     
     async def battle_order_batch(self, group_name = "A"):
         """그룹의 적과 유저에게 순서를 부여"""
-        group_name = group_map = enemy_map
         group_map = {
-            "A": "BattleLogA",
-            "B": "BattleLogB"
+            "A": "BattleGroupA",
+            "B": "BattleGroupB"
         }
         enemy_map = {
-            "A": "GroupAEnenmy",
-            "B": "GroupBEnenmy"
+            "A": "GroupAEnemy", 
+            "B": "GroupBEnemy"
         }
-        users = Character.get_column_data(self, group_map, "id")
-        enemys = Character.get_column_data(self, enemy_map, "id")
-        dice_sides = len(users) + len(enemys)
+        users = await Character.get_column_data(self, group_map[group_name], "id")
+        enemies = await Character.get_column_data(self, enemy_map[group_name], "id")
+        if not users or not enemies:
+            print(f"No users or enemies found for group {group_name}")
+            return
+        dice_sides = len(users) + len(enemies)
         user_order = []
 
         while len(user_order) < len(users):
@@ -87,7 +89,7 @@ class BattleSystem(commands.Cog):
         
         enemy_order = []
 
-        while len(enemy_order) < len(enemys):
+        while len(enemy_order) < len(enemies):
             enemy_roll = Utility.dice_roller(dice_sides)
             if enemy_roll not in user_order and enemy_roll:
                 enemy_order.append(enemy_roll)
@@ -116,6 +118,43 @@ class BattleSystem(commands.Cog):
         else:
             print(f"user_is_your_turn error by {user_id}.")
             return False
+        
+    async def group_logging(self, target_id, ):
+        #TODO: 배틀 로그 말고 다른 로그 스프레드 시트를 만들어야 함.
+
+    async def turn_over(self, group_name= "A"):
+        #TODO: 배틀로그에 최종적으로 계산된 데미지와 버프 등과 사망여부 확인을 해줄 커맨드 
+
+class BattleValidator:
+    #TODO
+    @staticmethod
+    def validate_user_turn(user_id: int, group_name: str) -> bool:
+        """사용자 턴 검증"""
+        if not user_id or not group_name:
+            return False
+            
+        # 그룹 참여 여부 확인
+        # 턴 순서 확인
+        # 행동 완료 여부 확인
+        return True
+    
+class BattleState:
+    #TODO
+    def __init__(self, group_name: str):
+        self.group_name = group_name
+        self.current_turn = 0
+        self.participants = []
+        self.enemies = []
+        
+    async def advance_turn(self):
+        """턴 진행 로직"""
+        if self.all_participants_acted():
+            self.current_turn += 1
+            await self.reset_participant_actions()
+            
+    def all_participants_acted(self) -> bool:
+        """모든 참가자가 행동했는지 확인"""
+        # 구현...
 
     
         

@@ -71,7 +71,7 @@ class Character(commands.Cog):
 
     async def reload_sheet(self):
         global sheet_user, sheet_boss, sheet_quests, sheet_BossLog, sheet_log_A, sheet_log_B, sheet_group_A, sheet_group_B, sheet_enemy_A, sheet_enemy_B, sheet_shop
-        sheet_user = gspread_client.open("Moogle_Escordia").worksheet("char")
+        sheet_user = gspread_client.open("Moogle_Escordia").worksheet("PlayerData")
         sheet_boss = gspread_client.open("Moogle_Escordia").worksheet("BossData")
         sheet_quests = gspread_client.open("Moogle_Escordia").worksheet("Quest")
         sheet_BossLog = gspread_client.open("Moogle_Escordia").worksheet("BossBattleLog")
@@ -84,20 +84,21 @@ class Character(commands.Cog):
         sheet_shop = gspread_client.open("Moogle_Escordia").worksheet("ShopData")
 
     def get_user_row_number(self, user_id: int):
-        try:
-            cell = sheet_user.find(str(user_id))
+        cell = sheet_user.find(str(user_id))
+        if cell:
             return cell.row
-        except gspread.exceptions.CellNotFound:
+        else:
             print(f"User ID {user_id} not found in the sheet.")
             return None
 
     def get_user_values(self, user_id: int):
         try:
             cell = sheet_user.find(str(user_id))
-            return sheet_user.row_values(cell.row)
-        except gspread.exceptions.CellNotFound:
-            logger.warning(f"User {user_id} not found in sheet")
-            return None
+            if cell:
+                return sheet_user.row_values(cell.row)
+            else:
+                logger.warning(f"User {user_id} not found in sheet")
+                return None
         except Exception as e:
             logger.error(f"Error fetching user {user_id}: {e}")
             raise
@@ -112,13 +113,13 @@ class Character(commands.Cog):
             sheet = sheet_map.get(group_name)
             if not sheet:
                 raise ValueError(f"Invalid group name: {group_name}")
-            # enemy_id를 시트에서 검색
+            
             cell = sheet.find(str(enemy_id))
-            row_idx = cell.row
-            return sheet.row_values(row_idx)
-        except gspread.exceptions.CellNotFound:
-            print(f"{enemy_id} not found in the sheet.")
-            return None
+            if cell:
+                return sheet.row_values(cell.row)
+            else:
+                print(f"{enemy_id} not found in the sheet.")
+                return None
         except Exception as e:
             print(f"An error occurred: {e}")
             return None
@@ -142,10 +143,13 @@ class Character(commands.Cog):
             if not sheet:
                 raise ValueError(f"Invalid sheet name: {sheet_name}")
             cell = sheet.find(str(user_id))
-            row_idx = cell.row
-            return sheet_user.row_values(row_idx)
-        except gspread.exceptions.CellNotFound:
-            print(f"User ID {user_id} not found in the sheet.")
+            if cell:
+                return sheet_user.row_values(cell.row)
+            else:
+                print(f"User ID {user_id} not found in the sheet.")
+                return None
+        except Exception as e: # ✅ except 블록 추가
+            print(f"An error occurred in get_every_sheet_user_values: {e}")
             return None
         
     async def get_column_data(self, sheet_name: str, column_name: str):
@@ -191,8 +195,11 @@ class Character(commands.Cog):
         """
         try:
             user_id = int(interaction.user.id)
-            # 유저 ID로 행 번호 찾기
             cell = sheet_user.find(str(user_id))
+            if not cell:
+                print(f"User ID {user_id} not found in the sheet.")
+                return
+
             row_number = cell.row
 
             # 첫 번째 행에서 열 이름 찾기
@@ -229,6 +236,9 @@ class Character(commands.Cog):
         try:
             user_id = int(interaction.user.id)
             cell = sheet_group_A.find(str(user_id))
+            if not cell:
+                print(f"User ID {user_id} not found in the sheet.")
+                return
             row_number = cell.row
 
             # 첫 번째 행에서 열 이름 찾기
@@ -250,8 +260,10 @@ class Character(commands.Cog):
         """
         try:
             user_id = int(interaction.user.id)
-            # 유저 ID로 행 번호 찾기
             cell = sheet_group_B.find(str(user_id))
+            if not cell:
+                print(f"User ID {user_id} not found in the sheet.")
+                return
             row_number = cell.row
 
             # 첫 번째 행에서 열 이름 찾기
@@ -389,8 +401,6 @@ class Character(commands.Cog):
         except Exception as e:
             print(f"An error occurred in update_cell_values: {e}")
 
-
-
     async def update_battle_participant_column(self, target_id: int, group_name: str, column_name: str, value):
         """특정 ID를 가진 참가자의 BattleGroup 시트 셀 값을 업데이트 합니다.(interaction 대신 target_discord_id를 직접 받음)"""
         try: 
@@ -405,6 +415,9 @@ class Character(commands.Cog):
                 return
                 
             cell = sheet_update.find(str(target_id))
+            if not cell:
+                print(f"{target_id} not found in group {group_name}")
+                return
             row_number = cell.row
             headers = sheet_update.row_values(1)
             if column_name in headers:
@@ -598,7 +611,7 @@ class Character(commands.Cog):
         user_id = interaction.user.id
 
         # 사용자 행 번호 가져오기
-        row_idx = await self.get_user_row_number(user_id)
+        row_idx = self.get_user_row_number(user_id)
         if not row_idx:
             await interaction.response.send_message(
                 "❌ 미등록 사용자야, 쿠뽀. 먼저 `/스탯등록` 해줘.", ephemeral=True
@@ -606,7 +619,7 @@ class Character(commands.Cog):
             return
 
         # 사용자 스탯 정보 가져오기
-        stats = await self.get_user_values(user_id)
+        stats = self.get_user_values(user_id)
         if not stats:
             await interaction.response.send_message(
                 "❌ 스탯 정보를 가져올 수 없어! 관리자에게 문의해, 쿠뽀.", ephemeral=True
@@ -684,7 +697,7 @@ class Character(commands.Cog):
             
             # 5. 새 캐릭터 데이터 생성
             new_character_data = [
-                user_id,                    # A: id (Discord ID)
+                str(user_id),                    # A: id (Discord ID)
                 캐릭터명,                   # B: name
                 직업.lower(),               # C: job
                 0,                          # D: battle_participants (전투 참가 여부)
@@ -826,3 +839,12 @@ class Character(commands.Cog):
         }
         
         return job_stats.get(job, job_stats["melee"])  # 기본값은 melee
+    
+    @app_commands.command(name="시트업뎃", description="구글 시트를 다시 불러옵니다.")
+    async def 시트업뎃(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            await self.reload_sheet()
+            await interaction.followup.send("✅ 구글 시트를 성공적으로 다시 불러왔습니다, 쿠뽀!")
+        except Exception as e:
+            await interaction.followup.send(f"❌ 시트를 다시 불러오는 중 오류가 발생했습니다: {e}")

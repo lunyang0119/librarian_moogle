@@ -4,7 +4,7 @@ import discord.ext
 from discord.ext import commands
 import asyncio
 from gspread_manager import Character
-from utility import Utility, Act, UserCheck
+from utility import Utility, Act
 from discord_battle_system import BattleSystem
 import logging
 

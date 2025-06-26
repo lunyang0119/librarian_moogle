@@ -122,7 +122,7 @@ class Act(commands.Cog):
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name='책찾기', description="10가지 유형의 책 중 랜덤하게 하나를 뽑습니다.")
-    async def 책찾기(self, interaction: discord.Interaction, option: str = "n"):
+    async def 책찾기(self, interaction: discord.Interaction):
         roll = Utility.dice_roller(10)
         responses = {
             1: "우리 중 누군가와 똑같은 이름을 가진 인물이 등장하는 이야기가 쓰여 있는 책을 발견했다.", 
@@ -154,17 +154,21 @@ class Act(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-class UserCheck(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
+# class UserCheck(commands.Cog):
+#     def __init__(self, bot):
+#         self.bot = bot
 
-    @app_commands.command(name="시트업뎃", description="구글 시트를 다시 불러옵니다.")
-    async def 시트업뎃(self, interaction: discord.Interaction):
-        try:
-            Character.reload_sheet()
-            await interaction.response.send_message("구글 시트를 성공적으로 다시 불러왔습니다!")
-        except Exception as e:
-            await interaction.response.send_message(f"시트를 다시 불러오는 중 오류가 발생했습니다: {e}")
+#     @app_commands.command(name="시트업뎃", description="구글 시트를 다시 불러옵니다.")
+#     async def 시트업뎃(self, interaction: discord.Interaction):
+#         try:
+#             character_cog = self.bot.get_cog('Character')
+#             if character_cog:
+#                 await character_cog.reload_sheet()
+#                 await interaction.response.send_message("✅ 구글 시트를 성공적으로 다시 불러왔습니다, 쿠뽀!")
+#             else:
+#                 await interaction.response.send_message("❌ 캐릭터 관리 모듈을 찾을 수 없어, 쿠뽀!", ephemeral=True)
+#         except Exception as e:
+#             await interaction.response.send_message(f"❌ 시트를 다시 불러오는 중 오류가 발생했습니다: {e}", ephemeral=True)
 
     # @app_commands.command(name="코인보유량", description="내 코인 보유량을 확인합니다.")
     # async def 내코인(interaction: discord.Interaction):

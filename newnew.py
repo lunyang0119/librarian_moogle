@@ -9,6 +9,7 @@ from gspread_manager import Character
 from discord_battle_system import BattleSystem
 from job import Job
 import traceback
+from utility import Utility, Act
 
 load_dotenv()
 
@@ -37,7 +38,7 @@ async def on_ready():
         Job,
         Utility,
         Act,
-        UserCheck
+        MainCommands
     ]
     
     # 상세한 로그와 함께 Cog 로드
@@ -372,6 +373,110 @@ class SkillTargetSelect(discord.ui.View):
         """리미트 브레이크 처리 로직"""
         await interaction.response.send_message(f"리미트 브레이크를 사용했습니다! 대상: {target_id}", ephemeral=True)
 
+class MainCommands(commands.Cog):
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+
+    @app_commands.command(name="도움말", description="도움말을 출력합니다.")
+    async def 도움말(self, interaction: discord.Interaction):
+        await interaction.response.send_message("도움말", ephemeral=True)
+
+    @app_commands.command(name="행동", description="행동을 선택하세요.")
+    async def 행동(self, interaction: discord.Interaction):
+        await interaction.response.send_message('네 차례야, 쿠뽀!', view=BattleInteraction(bot_instance=self.bot))
+
+    @app_commands.command(name="전투준비", description="그룹을 선택하여 전투합니다.")
+    @app_commands.describe(option="그룹명: A, B, boss 중 하나 선택; 기본값은 A")
+    async def 전투준비(self, interaction: discord.Interaction, option: str = "A"):
+        character_cog: Character = self.bot.get_cog('Character')
+        user_id = interaction.user.id
+        lowered = option.lower()
+        group_map = {"a": "A", "b": "B", "boss": "boss"}
+        group_name = group_map.get(lowered)
+
+        if group_name:
+            await interaction.response.defer() # 시간이 걸리므로 응답 지연
+            await character_cog.make_battle_log_group_clear(group_name)
+            await character_cog.make_battle_id_part(user_id, group_name)
+            await character_cog.update_user_row(user_id, "battle_participants", 1)
+            await character_cog.update_user_row(user_id, "battle_id", group_name)
+            await character_cog.make_battle_enemy_id(group_name)
+            await interaction.followup.send(f"{interaction.user.display_name}의 {group_name}그룹 로그 리셋 및 참가가 완료되었어 쿠뽀.\n참가할 사람들은 `/전투참가` 커맨드를 써주고, 모두 모였다면 `/준완`으로 전투를 시작해줘 쿠뽀.")
+        else:
+            await interaction.response.send_message("그룹 이름이 잘못됐어, 쿠뽀! A, B, boss 중에 골라줘.", ephemeral=True)
+
+    @app_commands.command(name="전투참가", description="그룹을 선택하여 전투에 참가합니다.")
+    @app_commands.describe(option="그룹명: A, B, boss 중 하나 선택; 기본값은 A")
+    async def 참가(self, interaction: discord.Interaction, option: str = "A"):
+        character_cog: Character = self.bot.get_cog('Character')
+        user_id = interaction.user.id
+        lowered = option.lower()
+        group_map = {"a": "A", "b": "B", "boss": "boss"}
+        group_name = group_map.get(lowered)
+
+        if group_name:
+            await interaction.response.defer()
+            await character_cog.make_battle_id_part(user_id, group_name)
+            await character_cog.update_user_row(user_id, "battle_participants", 1)
+            await character_cog.update_user_row(user_id, "battle_id", group_name)
+            await interaction.followup.send(f"{interaction.user.display_name}의 {group_name}그룹 참가가 완료되었어 쿠뽀.")
+        else:
+            await interaction.response.send_message("그룹 이름이 잘못됐어, 쿠뽀! A, B, boss 중에 골라줘.", ephemeral=True)
+
+    @app_commands.command(name="준완", description="그룹을 선택하여 전투를 개시합니다.")
+    @app_commands.describe(option="그룹명: A, B, boss 중 하나 선택; 기본값은 A")
+    async def 준완(self, interaction: discord.Interaction, option: str = "A"):
+        character_cog: Character = self.bot.get_cog('Character')
+        battle_system_cog: BattleSystem = self.bot.get_cog('BattleSystem')
+        lowered = option.lower()
+        
+        # 그룹 정보 매핑
+        group_map = {
+            "a": {"log": "BattleLogA", "group": "BattleGroupA", "enemy": "GroupAEnemy", "name": "A"},
+            "b": {"log": "BattleLogB", "group": "BattleGroupB", "enemy": "GroupBEnemy", "name": "B"},
+            "boss": {"log": "BattleLogBoss", "group": "BattleGroupBoss", "enemy": "BossData", "name": "boss"}
+        }
+        group_info = group_map.get(lowered)
+
+        if not group_info:
+            await interaction.response.send_message("그룹 이름이 잘못됐어, 쿠뽀! A, B, boss 중에 골라줘.", ephemeral=True)
+            return
+
+        await interaction.response.defer() # 응답 지연
+
+        # 참가자 및 적 목록 가져오기
+        user_list = character_cog.get_column_data(group_info["group"], "name")
+        enemy_list = character_cog.get_column_data(group_info["enemy"], "name")
+
+        # 참가자 목록 Embed
+        embed_users = discord.Embed(title=f"{group_info['name']}그룹 참가자", color=0x00ff00)
+        user_names = "\n".join([f"• {user}" for user in user_list]) if user_list else "참가자가 없습니다."
+        embed_users.add_field(name="참가 아군", value=user_names, inline=False)
+        
+        # 적 목록 Embed
+        embed_enemies = discord.Embed(title=f"{group_info['name']}그룹 전투 대상", color=0xff0000)
+        enemy_names = "\n".join([f"• {enemy}" for enemy in enemy_list]) if enemy_list else "적이 없습니다."
+        embed_enemies.add_field(name="적 목록", value=enemy_names, inline=False)
+
+        await interaction.followup.send(embeds=[embed_users, embed_enemies])
+
+        # 턴 순서 결정
+        order_message = await interaction.followup.send("🎲 순서를 정하는 중... 쿠뽀뽀...")
+        await battle_system_cog.battle_order_batch(group_info['name'])
+        
+        user_order = await character_cog._get_turn_order(group_info['name'], "user")
+        enemy_order = await character_cog._get_turn_order(group_info['name'], "enemy")
+
+        turn_embed = discord.Embed(title=f"🎲 {group_info['name']}그룹 진행 순서", color=0xffd700)
+        if user_order:
+            user_turn_text = "\n".join([f"{i+1}. {name} (주사위: {roll})" for i, (name, roll) in enumerate(user_order)])
+            turn_embed.add_field(name="🛡️ 아군 행동 순서", value=user_turn_text, inline=True)
+        if enemy_order:
+            enemy_turn_text = "\n".join([f"{i+1}. {name} (주사위: {roll})" for i, (name, roll) in enumerate(enemy_order)])
+            turn_embed.add_field(name="⚔️ 적 행동 순서", value=enemy_turn_text, inline=True)
+        
+        turn_embed.add_field(name="📋 전투 시작!", value="이제 순서대로 `/행동`을 입력해서 전투를 시작해줘 쿠뽀!", inline=False)
+        await order_message.edit(content=None, embed=turn_embed)
 
 
 @app_commands.command(name="전투준비", description="그룹을 선택하여 전투합니다.")
